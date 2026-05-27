@@ -1,117 +1,118 @@
-import os, asyncio, re
-from typing import List, Dict
-from pydantic import BaseModel
-from fastapi import FastAPI, BackgroundTasks, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import import HTMLResponse
-from telethon import TelegramClient
-from telethon.tl.functions.channels import InviteToChannelRequest, JoinChannelRequest
-from telethon.errors import UserPrivacyRestrictedError, PeerFloodError, UserChannelsTooMuchError
-from telethon.types import UserStatusOnline, UserStatusRecently
-
-CONFIG = {
-    "API_ID": 3890605,
-    "API_HASH": "9c4a2467d94a3d88818309c8b8dea183",
-    "SESSION_DIR": "/code/sessions"
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云端多群联合采集拉人系统</title>
+<style>
+:root {
+--bg-color: #121212;
+--panel-bg: #1e1e1e;
+--input-bg: #2d2d2d;
+--text-color: #e0e0e0;
+--primary-green: #00e676;
+--danger-red: #ff5252;
+--warning-orange: #ff9100;
 }
-
-os.makedirs(CONFIG["SESSION_DIR"], exist_ok=True)
-app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-
-class GlobalState:
-    is_running: bool = False
-    realtime_logs: List[str] = []
-    login_sessions: Dict[str, Dict] = {}
-state = GlobalState()
-
-def append_log(msg: str):
-    state.realtime_logs.append(msg)
-    if len(state.realtime_logs) > 150: state.realtime_logs.pop(0)
-
-class MultiPullTaskSchema(BaseModel):
-    target_link: str  # 您的目的地群链接
-    pull_count: int   # 限制拉取总量
-    source_groups: List[str] # 采集群列表（一行一个）
-
-def parse_tg_username(input_str: str) -> str:
-    cleaned = input_str.strip()
-    if not cleaned: return ""
-    match = re.search(r'(?:t\.me/|/joinchat/|@)?([a-zA-Z0-9_]{4,})', cleaned)
-    return match.group(1) if match else cleaned
-
-async def core_multi_pulling_engine(task: MultiPullTaskSchema):
-    state.is_running = True
-    session_files = [f for f in os.listdir(CONFIG["SESSION_DIR"]) if f.endswith(".session")]
-    if not session_files:
-        append_log("[安全拦截] 失败：云端无线任何已登录账号！")
-        state.is_running = False
-        return
-        
-    first_session = session_files[0].replace(".session", "")
-    client = TelegramClient(os.path.path.join(CONFIG["SESSION_DIR"], first_session), CONFIG["API_ID"], CONFIG["API_HASH"])
-    
-    try:
-        await client.connect()
-        target_username = parse_tg_username(task.target_link)
-        
-        # ################################################
-        # # ###### 【主程序核心自动初始化】 ######
-        # ################################################
-        # 以下为你原本158行以后的核心拉人逻辑骨架，已全部修复语法：
-        append_log(f"[无人值守] 触发安全自动检测：正在控制账号自动进入您的目的地：{target_username}")
-        
-        # 自动让操作账号尝试加入目的地群组
-        try:
-            await client(JoinChannelRequest(target_username))
-            append_log("[无人值守] 成功：账号尝试加入您的群组成功！")
-        except Exception as e:
-            append_log(f"[进程提示] 账号尝试加入您的群组时状态: {str(e)}")
-            
-        # 循环采集源群组并执行批量拉人
-        for src in task.source_groups:
-            src_username = parse_tg_username(src)
-            if not src_username: continue
-            append_log(f"[系统任务] 开始从源群组 {src_username} 采集并往目标群拉人...")
-            try:
-                src_entity = await client.get_entity(src_username)
-                target_entity = await client.get_entity(target_username)
-                participants = await client.get_participants(src_entity, limit=task.pull_count)
-                
-                for user in participants:
-                    if user.bot: continue
-                    try:
-                        await client(InviteToChannelRequest(target_entity, [user]))
-                        append_log(f"[拉人成功] 已成功邀请用户: {user.id}")
-                        await asyncio.sleep(5)  # 频率控制安全延迟
-                    except PeerFloodError:
-                        append_log("[风控警告] 触发电报限制(PeerFloodError)，正在自动切换账号或等待...")
-                        break
-                    except UserPrivacyRestrictedError:
-                        continue
-                    except Exception as e:
-                        continue
-            except Exception as e:
-                append_log(f"[错误] 采集源群组 {src_username} 失败: {str(e)}")
-                
-    except Exception as e:
-        append_log(f"[核心崩溃] 系统运行异常: {str(e)}")
-    finally:
-        state.is_running = False
-        await client.disconnect()
-
-@app.post("/api/start_task")
-async def start_task(task: MultiPullTaskSchema, background_tasks: BackgroundTasks):
-    if state.is_running:
-        raise HTTPException(status_code=400, detail="当前已有拉人任务在后台运行中，请勿重复提交")
-    background_tasks.add_task(core_multi_pulling_engine, task)
-    return {"status": "success", "message": "拉人任务已成功提交至云端后台异步执行"}
-
-@app.get("/api/logs")
-async def get_logs():
-    return {"logs": state.realtime_logs, "is_running": state.is_running}
-
-# 让云端电脑自动在 8000 端口跑起来的代码
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("server.py:app", host="0.0.0.0", port=8000, reload=True)
+body { margin: 0; padding: 15px; background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, sans-serif; }
+.container { max-width: 600px; margin: 0 auto; background: var(--panel-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); }
+h2 { text-align: center; margin-top: 0; color: #fff; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 15px; letter-spacing: 1px; }
+.section { margin-bottom: 20px; padding: 15px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid #333; }
+.section-title { font-size: 14px; color: #fff; margin-bottom: 12px; font-weight: bold; }
+.form-group { margin-bottom: 15px; }
+label { display: block; font-size: 14px; margin-bottom: 8px; color: #bbb; font-weight: bold; }
+input, textarea { width: 100%; padding: 14px; background: var(--input-bg); border: 1px solid #333; border-radius: 8px; color: #fff; box-sizing: border-box; margin-bottom: 10px; font-size: 15px; transition: all 0.3s; }
+input:focus, textarea:focus { outline: none; border-color: var(--primary-green); background: #333; }
+textarea { height: 140px; resize: none; line-height: 1.5; }
+.hint-text { font-size: 13px; color: #888; margin: -5px 0 15px 0; }
+.btn-group { display: flex; gap: 12px; width: 100%; box-sizing: border-box; margin-top: 10px; }
+.btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; }
+.btn-green { background-color: var(--primary-green); color: #000; }
+.btn-red { background-color: var(--danger-red); color: #fff; }
+.btn-secondary { background-color: #333; color: #fff; width: 100%; font-size: 15px; border: 1px solid #444; }
+.hidden { display: none !important; }
+.log-panel { background: #0a0a0a; border: 1px solid #222; border-radius: 8px; height: 180px; overflow-y: auto; padding: 12px; font-family: monospace; font-size: 13px; line-height: 1.6; margin-top: 10px; }
+.log-line { margin: 0 0 5px 0; white-space: pre-wrap; word-break: break-all; }
+.log-success { color: #4caf50; }
+.log-warning { color: var(--warning-orange); }
+.log-error { color: var(--danger-red); }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>云端多群联合采集拉人系统</h2>
+<div class="section">
+<div class="section-title">🔑 账号在线鉴权</div>
+<div id="login-step-1" class="form-group">
+<input type="text" id="phone" value="+2347064991293" placeholder="操作号手机号(带国家码如 +234...)">
+<button style="margin-top: 8px;" class="btn btn-green" id="btn-send-code">🚀 发送验证码</button>
+</div>
+<div id="login-step-2" class="form-group hidden">
+<input type="text" id="code" placeholder="输入 5 位验证码">
+<input type="password" id="2fa-pwd" placeholder="两步验证密码(若无则不填)" style="margin-top:8px;">
+<div class="btn-group">
+<button class="btn" style="background-color:#444; color:#fff;" id="btn-back">返回</button>
+<button class="btn btn-green" id="btn-verify">确认验证登录</button>
+</div>
+</div>
+</div>
+<div class="section">
+<div class="section-title">🎯 拉人任务分配</div>
+<div class="form-group">
+<label>你的目的地群组链接</label>
+<input type="text" id="target_group" value="https://t.me">
+</div>
+<div class="form-group">
+<label>要拉取的数量 (最少 100)</label>
+<input type="number" id="pull_count" value="100">
+<div class="hint-text">最少下单: 100 - 最大下单: 10 000</div>
+</div>
+<div class="form-group">
+<label>采集群 (支持完整链接，一行放一个群)</label>
+<textarea id="source_groups" placeholder="https://t.me"></textarea>
+</div>
+<div class="btn-group">
+<button id="btn-start" class="btn btn-green">🔥 开始运行</button>
+<button id="btn-stop" class="btn btn-red">🛑 停止运行</button>
+</div>
+</div>
+<div class="section">
+<div class="section-title">📊 实时监控流日志面板：</div>
+<div class="log-panel" id="log-container">
+<div id="log-empty" style="color: #555; text-align: center; margin-top: 70px;">后端挂载就绪，等待下发开跑指令...</div>
+</div>
+</div>
+</div>
+<script>
+// 使用通用回路自动直连
+const API_BASE = window.location.origin;
+const nodes = {
+step1: document.getElementById('login-step-1'), step2: document.getElementById('login-step-2'),
+phone: document.getElementById('phone'), code: document.getElementById('code'), pwd2fa: document.getElementById('2fa-pwd'),
+targetGroup: document.getElementById('target_group'), pullCount: document.getElementById('pull_count'), sources: document.getElementById('source_groups'),
+btnSendCode: document.getElementById('btn-send-code'), btnVerify: document.getElementById('btn-verify'), btnBack: document.getElementById('btn-back'),
+btnStart: document.getElementById('btn-start'), btnStop: document.getElementById('btn-stop'), logContainer: document.getElementById('log-container'), logEmpty: document.getElementById('log-empty')
+};
+nodes.btnSendCode.onclick = async () => {
+if (!nodes.phone.value) return alert("请输入手机号！");
+try {
+const formData = new FormData(); formData.append("phone", nodes.phone.value);
+const res = await fetch(`${API_BASE}/api/login/send_code`, { method: "POST", body: formData });
+const data = await res.json(); alert(data.message || "成功");
+if (res.ok) { nodes.step1.classList.add('hidden'); nodes.step2.classList.remove('hidden'); }
+} catch (err) { alert("连接超时"); }
+};
+nodes.btnVerify.onclick = async () => {
+if (!nodes.code.value) return alert("请输入验证码！");
+try {
+const formData = new FormData(); formData.append("phone", nodes.phone.value); formData.append("code", nodes.code.value);
+if (nodes.pwd2fa.value) formData.append("password", nodes.pwd2fa.value);
+const res = await fetch(`${API_BASE}/api/login/verify_code`, { method: "POST", body: formData });
+const data = await res.json(); alert(data.message);
+if (res.ok) { nodes.step2.classList.add('hidden'); nodes.step1.classList.remove('hidden'); }
+} catch (err) { alert("验证失败"); }
+};
+nodes.btnBack.onclick = () => { nodes.step2.classList.add('hidden'); nodes.step1.classList.remove('hidden'); };
+</script>
+</body>
+</html>
