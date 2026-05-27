@@ -20,7 +20,7 @@ os.makedirs(CONFIG["SESSION_DIR"], exist_ok=True)
 # 2. 初始化 FastAPI 服务
 app = FastAPI()
 
-# 3. 开启跨域支持（允许前端访问）
+# 3. 开启跨域支持
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,7 +61,11 @@ def parse_tg_username(input_str: str) -> str:
         cleaned = cleaned.split("joinchat/")[-1]
     if "/" in cleaned: 
         cleaned = cleaned.split("/")[-1]
-    return cleaned.replace("@", "").split("?")[0]
+    
+    res = cleaned.replace("@", "")
+    if "?" in res:
+        res = res.split("?")[0]
+    return res
 
 # 8. 核心全自动多群拉人引擎
 async def core_multi_pulling_engine(target: str, count: int, sources_text: str):
@@ -103,6 +107,50 @@ async def core_multi_pulling_engine(target: str, count: int, sources_text: str):
                 async for user in client.iter_participants(source_entity):
                     if not state.is_running or successful_pulls >= count: 
                         break
+                    if not user.username or user.bot or user.deleted: 
+                        continue
+                    if isinstance(user.status, (UserStatusOnline, UserStatusRecently)):
+                        try:
+                            await client(InviteToChannelRequest(target_entity, [user]))
+                            successful_pulls += 1
+                            append_log(f"➔ [成功] 活人 @{user.username} 导入成功！当前进度: [{successful_pulls}/{count}]")
+                            await asyncio.sleep(20)
+                        except UserPrivacyRestrictedError: 
+                            pass
+                        except PeerFloodError:
+                            append_log("⚠ [频率限制] 触发官方频控。此号今日额度已尽，请明天换号冲锋。\n")
+                            state.is_running = False
+                            return
+                        except Exception: 
+                            await asyncio.sleep(3)
+            except Exception as e: 
+                append_log(f"⚠ 跳过无法解析的群组 @{source_username}: {str(e)}")
+                continue
+        append_log(f"[大功告成] 多群拉人任务已彻底完成！总计导入: {successful_pulls} 人。\n")
+    except Exception as e: 
+        append_log(f"[系统异常]: {str(e)}")
+    finally: 
+        await client.disconnect()
+        state.is_running = False
+
+# 9. 基础路由界面渲染 (已移除导致语法错误的混乱字符串)
+@app.get("/", response_class=HTMLResponse)
+async def get_index():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head><title>TG 后端服务</title></head>
+    <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+        <h2>服务已成功启动并成功调出端口！</h2>
+        <p>API 后端接口已就绪，请在前端配置此地址进行对接。</p>
+    </body>
+    </html>
+    """
+
+# 10. 自动调出端口的本地运行入口
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
                     if not user.username or user.bot or user.deleted: 
                         continue
                     if isinstance(user.status, (UserStatusOnline, UserStatusRecently)):
