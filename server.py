@@ -229,3 +229,4 @@ apiId: document.getElementById('api_id'), apiHash: document.getElementById('api_
 phone: document.getElementById('phone'), code: document.getElementById('code'), pwd2fa: document.getElementById('2fa-pwd'),
 targetGroup: document.getElementById('target_group'), pullCount: document.getElementById('pull_count'), sources: document.getElementById('source_groups'),
 btnSendCode: document.getElementById('btn-send-code'), btnVerify: document.getElementById('btn-verify'), btnBack: document.getElementById('btn-back'),
+"""
