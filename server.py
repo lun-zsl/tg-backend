@@ -3,6 +3,7 @@ from typing import List, Dict
 from pydantic import BaseModel
 from fastapi import FastAPI, BackgroundTasks, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, JSONResponse
 from fastapi.responses import HTMLResponse, JSONResponse
 from telethon import TelegramClient
 from telethon.tl.functions.channels import InviteToChannelRequest, JoinChannelRequest
