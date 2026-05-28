@@ -19,10 +19,165 @@ os.makedirs(CONFIG["SESSION_DIR"], exist_ok=True)
 # 2. 初始化 FastAPI 服务
 app = FastAPI()
 
-# ======= 完美融入：拦截并忽略浏览器自带的 favicon 请求，消除终端红字 404 报错 =======
+# ====== 🏠 动态主页路由：自动适配 Codespaces 域名 ======
+@app.get("/")
+async def index():
+    # 这里的 HTML 代码中，API_BASE 已经改为了 window.location.origin 动态获取！
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云端多群联合采集拉人系统 (通用商用版)</title>
+    <style>
+    :root { --bg-color: #121212; --panel-bg: #1e1e1e; --input-bg: #2d2d2d; --text-color: #e0e0e0; --primary-green: #00e676; --danger-red: #ff5252; --warning-orange: #ff9100; }
+    body { margin: 0; padding: 15px; background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, sans-serif; }
+    .container { max-width: 600px; margin: 0 auto; background: var(--panel-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); }
+    h2 { text-align: center; margin-top: 0; color: #fff; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 15px; letter-spacing: 1px; }
+    .section { margin-bottom: 20px; padding: 15px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid #333; }
+    .section-title { font-size: 14px; color: #fff; margin-bottom: 12px; font-weight: bold; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-size: 14px; margin-bottom: 8px; color: #bbb; font-weight: bold; }
+    input, textarea { width: 100%; padding: 14px; background: var(--input-bg); border: 1px solid #333; border-radius: 8px; color: #fff; box-sizing: border-box; margin-bottom: 10px; font-size: 15px; transition: all 0.3s; }
+    input:focus, textarea:focus { outline: none; border-color: var(--primary-green); background: #333; }
+    textarea { height: 140px; resize: none; line-height: 1.5; }
+    .btn-group { display: flex; gap: 12px; width: 100%; box-sizing: border-box; margin-top: 10px; }
+    .btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; }
+    .btn-green { background-color: var(--primary-green); color: #000; }
+    .btn-red { background-color: var(--danger-red); color: #fff; }
+    .hidden { display: none !important; }
+    .log-panel { background: #0a0a0a; border: 1px solid #222; border-radius: 8px; height: 180px; overflow-y: auto; padding: 12px; font-family: monospace; font-size: 13px; line-height: 1.6; margin-top: 10px; }
+    .log-line { margin: 0 0 5px 0; white-space: pre-wrap; word-break: break-all; }
+    .log-success { color: #4caf50; }
+    .log-warning { color: var(--warning-orange); }
+    .log-error { color: var(--danger-red); }
+    </style>
+    </head>
+    <body>
+    <div class="container">
+    <h2>云端多群联合采集拉人系统 (通用商用版)</h2>
+    <div class="section">
+    <div class="section-title">🔑 专属开发者凭证配置</div>
+    <div id="login-step-1" class="form-group">
+    <label>API_ID</label>
+    <input type="number" id="api_id" value="38906005">
+    <label>API_HASH</label>
+    <input type="text" id="api_hash" value="9c4a2467d94a3d88818309c8b80ea183">
+    <label>操作号手机号</label>
+    <input type="text" id="phone" value="+2347064991293">
+    <button style="margin-top: 8px;" class="btn btn-green" id="btn-send-code">🚀 发送验证码</button>
+    </div>
+    <div id="login-step-2" class="form-group hidden">
+    <input type="text" id="code" placeholder="输入 5 位验证码">
+    <input type="password" id="2fa-pwd" placeholder="两步验证密码 (若无不填)" style="margin-top:8px;">
+    <div class="btn-group">
+    <button class="btn" style="background-color:#444; color:#fff;" id="btn-back">返回</button>
+    <button class="btn btn-green" id="btn-verify">确认验证登录</button>
+    </div>
+    </div>
+    </div>
+    <div class="section">
+    <div class="section-title">🎯 拉人任务分配</div>
+    <div class="form-group">
+    <label>你的目的地群组链接</label>
+    <input type="text" id="target_group" value="https://t.me">
+    </div>
+    <div class="form-group">
+    <label>要拉取的数量</label>
+    <input type="number" id="pull_count" value="100">
+    </div>
+    <div class="form-group">
+    <label>采集群 (一行一个)</label>
+    <textarea id="source_groups" placeholder="https://t.me"></textarea>
+    </div>
+    <div class="btn-group">
+    <button id="btn-start" class="btn btn-green">🔥 开始运行</button>
+    <button id="btn-stop" class="btn btn-red">🛑 停止运行</button>
+    </div>
+    </div>
+    <div class="section">
+    <div class="section-title">📊 实时监控流日志面板：</div>
+    <div class="log-panel" id="log-container">
+    <div id="log-empty" style="color: #555; text-align: center; margin-top: 70px;">后端挂载就绪，等待下发开跑指令...</div>
+    </div>
+    </div>
+    </div>
+    <script>
+    // ✨ 核心魔改：自动读取当前浏览器的域名作为后端接口地址，无需再手动修改！
+    const API_BASE = window.location.origin;
+    const nodes = {
+    step1: document.getElementById('login-step-1'), step2: document.getElementById('login-step-2'),
+    apiId: document.getElementById('api_id'), apiHash: document.getElementById('api_hash'),
+    phone: document.getElementById('phone'), code: document.getElementById('code'), pwd2fa: document.getElementById('2fa-pwd'),
+    targetGroup: document.getElementById('target_group'), pullCount: document.getElementById('pull_count'), sources: document.getElementById('source_groups'),
+    btnSendCode: document.getElementById('btn-send-code'), btnVerify: document.getElementById('btn-verify'), btnBack: document.getElementById('btn-back'),
+    btnStart: document.getElementById('btn-start'), btnStop: document.getElementById('btn-stop'), logContainer: document.getElementById('log-container'), logEmpty: document.getElementById('log-empty')
+    };
+    nodes.btnSendCode.onclick = async () => {
+    if (!nodes.apiId.value || !nodes.apiHash.value || !nodes.phone.value) return alert("请完整填写信息！");
+    try {
+    const res = await fetch(`${API_BASE}/api/login/send_code`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: nodes.phone.value, api_id: parseInt(nodes.apiId.value), api_hash: nodes.apiHash.value.trim() })
+    });
+    const data = await res.json();
+    if (res.ok) { alert("验证码申请成功，请查看 TG 客户端"); nodes.step1.classList.add('hidden'); nodes.step2.classList.remove('hidden'); }
+    else { alert("发码失败: " + (data.detail || "未知错误")); }
+    } catch (err) { alert("网络超时，请检查后端服务"); }
+    };
+    nodes.btnVerify.onclick = async () => {
+    if (!nodes.code.value) return alert("请输入验证码！");
+    try {
+    const res = await fetch(`${API_BASE}/api/login/verify_code`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: nodes.phone.value, code: nodes.code.value, password: nodes.pwd2fa.value || null })
+    });
+    if (res.ok) { alert("恭喜，操作号登录成功！"); nodes.step2.classList.add('hidden'); nodes.step1.classList.remove('hidden'); }
+    else { alert("校验失败"); }
+    } catch (err) { alert("验证登录失败"); }
+    };
+    nodes.btnBack.onclick = () => { nodes.step2.classList.add('hidden'); nodes.step1.classList.remove('hidden'); };
+    nodes.btnStart.onclick = async () => {
+    if(!nodes.sources.value.trim()) return alert("请填写采集群！");
+    try {
+    const res = await fetch(`${API_BASE}/api/start_task`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_link: nodes.targetGroup.value, pull_count: parseInt(nodes.pullCount.value), source_groups: nodes.sources.value.split('\\n').filter(line => line.trim() !== ''), api_id: parseInt(nodes.apiId.value), api_hash: nodes.apiHash.value.trim() })
+    });
+    if (res.ok) alert("多群联合采集任务已开跑！");
+    else { const d = await res.json(); alert(d.message); }
+    } catch (err) { alert("下发任务失败"); }
+    };
+    nodes.btnStop.onclick = async () => { await fetch(`${API_BASE}/api/stop_task`, { method: "POST" }); alert("已停止"); };
+    setInterval(async () => {
+    try {
+    const res = await fetch(`${API_BASE}/api/logs`); if (!res.ok) return;
+    const data = await res.json();
+    nodes.btnStart.disabled = data.is_running; nodes.btnStart.style.opacity = data.is_running ? "0.5" : "1";
+    if (data.logs && data.logs.length > 0) {
+    nodes.logEmpty.classList.add('hidden');
+    nodes.logContainer.querySelectorAll('.log-line').forEach(line => line.remove());
+    data.logs.forEach(log => {
+    const p = document.createElement('p'); p.className = 'log-line'; p.innerText = log;
+    if (log.includes("[成功]")) p.className = 'log-line log-success';
+    else if (log.includes("失败") || log.includes("拦截")) p.className = 'log-line log-error';
+    else if (log.includes("⚠")) p.className = 'log-line log-warning';
+    nodes.logContainer.appendChild(p);
+    });
+    nodes.logContainer.scrollTop = nodes.logContainer.scrollHeight;
+    }
+    } catch (err) {}
+    }, 1000);
+    </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return Response(status_code=204)  # 返回 204 No Content
+    return Response(status_code=204)
 # =================================
 
 # 3. 开启跨域支持
