@@ -18,6 +18,12 @@ os.makedirs(CONFIG["SESSION_DIR"], exist_ok=True)
 # 2. 初始化 FastAPI 服务
 app = FastAPI()
 
+# ======= 完美融入：拦截并忽略浏览器自带的 favicon 请求，消除终端红字 404 报错 =======
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)  # 返回 204 No Content
+# =================================
+
 # 3. 开启跨域支持
 app.add_middleware(
     CORSMiddleware,
